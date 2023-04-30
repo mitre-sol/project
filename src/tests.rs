@@ -5,8 +5,7 @@ mod test_module {
 
     use crate::contract::{execute, instantiate, query};
     use crate::error::ContractError;
-    // use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ResolveRecordResponse};
-    use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, GetOwnerResponse};
+    use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, GetOwnerResponse, GetBalanceResponse};
     use crate::state::Config;
 
     fn mock_init(deps: DepsMut) {
@@ -20,6 +19,20 @@ mod test_module {
         let res = query(deps, mock_env(), QueryMsg::Config {}).unwrap();
         let value: Config = from_binary(&res).unwrap();
         assert_eq!(value, expected);
+    }
+
+    fn assert_balance(deps: Deps, address: Addr, expected_balance: Uint128) {
+        let res = query(
+            deps,
+            mock_env(),
+            QueryMsg::GetBalance {
+                address: address
+            },
+        )
+        .unwrap();
+
+        let value: GetBalanceResponse = from_binary(&res).unwrap();
+        assert_eq!(expected_balance, value.balance);
     }
 
     #[test]
@@ -57,16 +70,28 @@ mod test_module {
 
         // Querying for the owner of the contract results in address "creator", as defined in mock_init.
         let info_alice = mock_info("Alice", &coins(1000, "usei"));
-        // let info_bob = mock_info("Bob", &coins(1000, "usei"));
-        // let info_carl = mock_info("Carl", &coins(1000, "usei"));
+        let bob_addr = Addr::unchecked("Bob");
+        let carl_addr = Addr::unchecked("Carl");
 
         let transfer_msg = ExecuteMsg::Transfer {
-            address1: Addr::unchecked("Bob"),
-            address2: Addr::unchecked("Carl"),
+            address1: bob_addr.clone(),
+            address2: carl_addr.clone(),
             amount: Uint128::from(1000u32),
         };
 
         let res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
             .expect("Alice successfully transferes 1000 usei");
+        assert_balance(deps.as_ref(), bob_addr, Uint128::from(500u32));
+        assert_balance(deps.as_ref(), carl_addr, Uint128::from(500u32));
+    }
+
+    #[test]
+    fn get_balance_empty() {
+        let mut deps = mock_dependencies();
+        mock_init(deps.as_mut());
+
+        // Bob's balance should be 0 usei as there have been no transfers to his addr.
+        let bob_addr = Addr::unchecked("Bob");
+        assert_balance(deps.as_ref(), bob_addr, Uint128::from(0u32));
     }
 }

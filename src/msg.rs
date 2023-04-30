@@ -20,6 +20,8 @@ pub enum QueryMsg {
     Config {},
     #[returns(GetOwnerResponse)]
     GetOwner {},
+    #[returns(GetBalanceResponse)]
+    GetBalance { address: Addr },
 }
 
 #[cw_serde]
@@ -38,4 +40,9 @@ impl From<Config> for ConfigResponse {
 #[cw_serde]
 pub struct GetOwnerResponse {
     pub address: String,
+}
+
+#[cw_serde]
+pub struct GetBalanceResponse {
+    pub balance: Uint128,
 }

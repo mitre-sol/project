@@ -3,7 +3,7 @@ use cosmwasm_std::{
 };
 
 use crate::error::ContractError;
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, GetOwnerResponse};
+use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, GetOwnerResponse, GetBalanceResponse};
 use crate::state::{Config, NameRecord, CONFIG, BALANCES};
 
 const MIN_NAME_LENGTH: u64 = 3;
@@ -86,6 +86,7 @@ pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary::<ConfigResponse>(&CONFIG.load(deps.storage)?.into()),
         QueryMsg::GetOwner {} => get_owner_resolver(deps, env),
+        QueryMsg::GetBalance { address } => get_balance_resolver(deps, env, address),
     }
 }
 
@@ -93,5 +94,17 @@ fn get_owner_resolver(deps: Deps, _env: Env) -> StdResult<Binary> {
     let config = CONFIG.load(deps.storage)?;
     let address = config.owner.to_string();
     let resp = GetOwnerResponse { address };
+    to_binary(&resp)
+}
+
+fn get_balance_resolver(deps: Deps, _env: Env, address: Addr) -> StdResult<Binary> {
+    let balance = BALANCES.may_load(deps.storage, address)?;
+    let checked_balance = if balance.is_some() {
+        balance.unwrap()
+    } else {
+        Uint128::from(0u128)
+    };
+
+    let resp = GetBalanceResponse { balance: checked_balance };
     to_binary(&resp)
 }
