@@ -1,6 +1,6 @@
 use crate::state::Config;
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Coin};
+use cosmwasm_std::{Addr, Uint128};
 
 #[cw_serde]
 pub struct InstantiateMsg {}
@@ -10,8 +10,7 @@ pub struct GetOwner {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    Register { name: String },
-    Transfer { name: String, to: String },
+    Transfer { address1: Addr, address2: Addr, amount: Uint128 },
 }
 
 #[cw_serde]

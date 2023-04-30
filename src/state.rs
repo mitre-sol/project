@@ -1,5 +1,5 @@
 use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Addr, Coin};
+use cosmwasm_std::{Addr, Uint128};
 use cw_storage_plus::{Item, Map};
 
 #[cw_serde]
@@ -13,4 +13,4 @@ pub struct NameRecord {
 }
 
 pub const CONFIG: Item<Config> = Item::new("config");
-pub const NAME_RESOLVER: Map<&[u8], NameRecord> = Map::new("name_resolver");
+pub const BALANCES: Map<Addr, Uint128> = Map::new("balances");

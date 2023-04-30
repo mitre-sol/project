@@ -1,10 +1,10 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult,
+    Addr, entry_point, to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128
 };
 
 use crate::error::ContractError;
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, GetOwnerResponse};
-use crate::state::{Config, NameRecord, CONFIG, NAME_RESOLVER};
+use crate::state::{Config, NameRecord, CONFIG, BALANCES};
 
 const MIN_NAME_LENGTH: u64 = 3;
 const MAX_NAME_LENGTH: u64 = 64;
@@ -25,70 +25,61 @@ pub fn instantiate(
     Ok(Response::default())
 }
 
-// #[cfg_attr(not(feature = "library"), entry_point)]
-// pub fn execute(
-//     deps: DepsMut,
-//     env: Env,
-//     info: MessageInfo,
-//     msg: ExecuteMsg,
-// ) -> Result<Response, ContractError> {
-//     match msg {
-//         ExecuteMsg::Register { name } => execute_register(deps, env, info, name),
-//         ExecuteMsg::Transfer { name, to } => execute_transfer(deps, env, info, name, to),
-//     }
-// }
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn execute(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    msg: ExecuteMsg,
+) -> Result<Response, ContractError> {
+    match msg {
+        ExecuteMsg::Transfer { address1, address2, amount } => execute_transfer(deps, env, info, address1, address2, amount),
+    }
+}
 
-// pub fn execute_register(
-//     deps: DepsMut,
-//     _env: Env,
-//     info: MessageInfo,
-//     name: String,
-// ) -> Result<Response, ContractError> {
-//     // we only need to check here - at point of registration
-//     validate_name(&name)?;
-//     let config = CONFIG.load(deps.storage)?;
-//     // assert_sent_sufficient_coin(&info.funds, config.purchase_price)?;
+// This utility was copied directly from the name-service example.
+pub fn assert_sent_sufficient_coin(
+    sent: &[Coin],
+    required: Option<Coin>,
+) -> Result<(), ContractError> {
+    if let Some(required_coin) = required {
+        let required_amount = required_coin.amount.u128();
+        if required_amount > 0 {
+            let sent_sufficient_funds = sent.iter().any(|coin| {
+                // check if a given sent coin matches denom
+                // and has sufficient amount
+                coin.denom == required_coin.denom && coin.amount.u128() >= required_amount
+            });
 
-//     let key = name.as_bytes();
-//     let record = NameRecord { owner: info.sender };
+            if sent_sufficient_funds {
+                return Ok(());
+            } else {
+                return Err(ContractError::InsufficientFundsSend {});
+            }
+        }
+    }
+    Ok(())
+}
 
-//     if (NAME_RESOLVER.may_load(deps.storage, key)?).is_some() {
-//         // name is already taken
-//         return Err(ContractError::NameTaken { name });
-//     }
+pub fn execute_transfer(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    address1: Addr,
+    address2: Addr,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    // Check that requestor has sufficient usei tokens.
+    assert_sent_sufficient_coin(&info.funds, Some(Coin{ denom: "usei".to_string(), amount: amount}))?;
 
-//     // name is available
-//     NAME_RESOLVER.save(deps.storage, key, &record)?;
+    // lambda function taken from cw-storage-plus tests:  https://github.com/CosmWasm/cw-storage-plus/blob/main/src/map.rs#LL1181C1-L1182C1
+    let add_half_amount = |a: Option<Uint128>| -> StdResult<_> { Ok(a.unwrap_or_default().checked_add(amount.checked_div(2u128.into()).unwrap()).unwrap()) };
 
-//     Ok(Response::default())
-// }
+    BALANCES.update(deps.storage, address1, add_half_amount);
+    BALANCES.update(deps.storage, address2, add_half_amount);
 
-// pub fn execute_transfer(
-//     deps: DepsMut,
-//     _env: Env,
-//     info: MessageInfo,
-//     name: String,
-//     to: String,
-// ) -> Result<Response, ContractError> {
-//     let config = CONFIG.load(deps.storage)?;
-//     // assert_sent_sufficient_coin(&info.funds, config.transfer_price)?;
-
-//     let new_owner = deps.api.addr_validate(&to)?;
-//     let key = name.as_bytes();
-//     NAME_RESOLVER.update(deps.storage, key, |record| {
-//         if let Some(mut record) = record {
-//             if info.sender != record.owner {
-//                 return Err(ContractError::Unauthorized {});
-//             }
-
-//             record.owner = new_owner.clone();
-//             Ok(record)
-//         } else {
-//             Err(ContractError::NameNotExists { name: name.clone() })
-//         }
-//     })?;
-//     Ok(Response::default())
-// }
+    Ok(Response::default())
+}
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
@@ -104,36 +95,3 @@ fn get_owner_resolver(deps: Deps, _env: Env) -> StdResult<Binary> {
     let resp = GetOwnerResponse { address };
     to_binary(&resp)
 }
-
-
-// // let's not import a regexp library and just do these checks by hand
-// fn invalid_char(c: char) -> bool {
-//     let is_valid =
-//         c.is_ascii_digit() || c.is_ascii_lowercase() || (c == '.' || c == '-' || c == '_');
-//     !is_valid
-// }
-
-// /// validate_name returns an error if the name is invalid
-// /// (we require 3-64 lowercase ascii letters, numbers, or . - _)
-// fn validate_name(name: &str) -> Result<(), ContractError> {
-//     let length = name.len() as u64;
-//     if (name.len() as u64) < MIN_NAME_LENGTH {
-//         Err(ContractError::NameTooShort {
-//             length,
-//             min_length: MIN_NAME_LENGTH,
-//         })
-//     } else if (name.len() as u64) > MAX_NAME_LENGTH {
-//         Err(ContractError::NameTooLong {
-//             length,
-//             max_length: MAX_NAME_LENGTH,
-//         })
-//     } else {
-//         match name.find(invalid_char) {
-//             None => Ok(()),
-//             Some(bytepos_invalid_char_start) => {
-//                 let c = name[bytepos_invalid_char_start..].chars().next().unwrap();
-//                 Err(ContractError::InvalidCharacter { c })
-//             }
-//         }
-//     }
-// }
