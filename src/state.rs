@@ -7,10 +7,5 @@ pub struct Config {
     pub owner: Addr,
 }
 
-#[cw_serde]
-pub struct NameRecord {
-    pub owner: Addr,
-}
-
 pub const CONFIG: Item<Config> = Item::new("config");
 pub const BALANCES: Map<Addr, Uint128> = Map::new("balances");

@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test_module {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{Addr, BankMsg, coin, coins, from_binary, Coin, Deps, DepsMut, Uint128};
+    use cosmwasm_std::{Addr, coins, from_binary, Deps, DepsMut, Uint128};
 
     use crate::contract::{execute, instantiate, query};
     use crate::error::ContractError;
@@ -57,7 +57,6 @@ mod test_module {
         mock_init(deps.as_mut());
 
         // Querying for the owner of the contract results in address "creator", as defined in mock_init.
-        let info = mock_info("Alice", &coins(2, "usei"));
         let res = query(deps.as_ref(), mock_env(), QueryMsg::GetOwner{}).unwrap();
         let value: GetOwnerResponse = from_binary(&res).unwrap();
         assert_eq!("creator", value.address)
@@ -79,7 +78,7 @@ mod test_module {
             amount: Uint128::from(1000u32),
         };
 
-        let res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
+        let _res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
             .expect("Alice successfully transferes 1000 usei");
         assert_balance(deps.as_ref(), bob_addr, Uint128::from(500u32));
         assert_balance(deps.as_ref(), carl_addr, Uint128::from(500u32));
@@ -101,7 +100,7 @@ mod test_module {
             amount: Uint128::from(5u32),
         };
 
-        let res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
+        let _res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
             .expect("Alice successfully transferes 1000 usei");
         assert_balance(deps.as_ref(), bob_addr, Uint128::from(2u32));
         assert_balance(deps.as_ref(), carl_addr, Uint128::from(2u32));
@@ -132,7 +131,7 @@ mod test_module {
             amount: Uint128::from(1000u32),
         };
 
-        let transfer_res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
+        let _transfer_res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
             .expect("Alice successfully transferes 1000 usei");
 
         // After Alice's transfer, Bob's balance should be 500.
@@ -140,7 +139,7 @@ mod test_module {
 
         // Now attempt to withdraw 400 tokens as Bob.
         let info_bob = mock_info("Bob", &coins(0, "usei"));
-        let withdraw_res = execute(deps.as_mut(), mock_env(), info_bob, ExecuteMsg::Withdraw { amount: Uint128::from(400u32)});
+        let _withdraw_res = execute(deps.as_mut(), mock_env(), info_bob, ExecuteMsg::Withdraw { amount: Uint128::from(400u32)});
 
         // After withdraw, Bob's balance should be 100.
         assert_balance(deps.as_ref(), bob_addr.clone(), Uint128::from(100u32));

@@ -4,10 +4,7 @@ use cosmwasm_std::{
 
 use crate::error::ContractError;
 use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, GetOwnerResponse, GetBalanceResponse};
-use crate::state::{Config, NameRecord, CONFIG, BALANCES};
-
-const MIN_NAME_LENGTH: u64 = 3;
-const MAX_NAME_LENGTH: u64 = 64;
+use crate::state::{Config, CONFIG, BALANCES};
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -92,7 +89,7 @@ pub fn execute_withdraw(
 
     let withdraw_amount = |a: Option<Uint128>| -> StdResult<_> { Ok(a.unwrap_or_default().checked_sub(amount).unwrap()) };
 
-    BALANCES.update(deps.storage, info.sender.clone(), withdraw_amount);
+    BALANCES.update(deps.storage, info.sender.clone(), withdraw_amount)?;
 
     return Ok(send_tokens(info.sender.clone(), vec![Coin {denom: "usei".to_string(), amount: amount}], "withdraw"));
 }
@@ -112,8 +109,8 @@ pub fn execute_transfer(
     // lambda function taken from cw-storage-plus tests:  https://github.com/CosmWasm/cw-storage-plus/blob/main/src/map.rs#LL1181C1-L1182C1
     let add_half_amount = |a: Option<Uint128>| -> StdResult<_> { Ok(a.unwrap_or_default().checked_add(amount.checked_div(2u128.into()).unwrap()).unwrap()) };
 
-    BALANCES.update(deps.storage, address1, add_half_amount);
-    BALANCES.update(deps.storage, address2, add_half_amount);
+    BALANCES.update(deps.storage, address1, add_half_amount)?;
+    BALANCES.update(deps.storage, address2, add_half_amount)?;
 
     Ok(Response::default())
 }
