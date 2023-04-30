@@ -32,6 +32,7 @@ pub fn execute(
     match msg {
         ExecuteMsg::Transfer { address1, address2, amount } => execute_transfer(deps, env, info, address1, address2, amount),
         ExecuteMsg::Withdraw { amount } => execute_withdraw(deps, env, info, amount),
+        ExecuteMsg::TransferWithTip { address1, address2, amount } => execute_transfer_with_tip(deps, env, info, address1, address2, amount),
     }
 }
 
@@ -106,6 +107,9 @@ pub fn execute_transfer(
     // Check that requestor has sufficient usei tokens.
     assert_sent_sufficient_coin(&info.funds, Some(Coin{ denom: "usei".to_string(), amount: amount}))?;
 
+    // NOTE: It was not specified what to do if sender sends the request with too many tokens.
+    //       A reasonable remediation is to credit the sender with the unusued tokens.
+
     // lambda function taken from cw-storage-plus tests:  https://github.com/CosmWasm/cw-storage-plus/blob/main/src/map.rs#LL1181C1-L1182C1
     let add_half_amount = |a: Option<Uint128>| -> StdResult<_> { Ok(a.unwrap_or_default().checked_add(amount.checked_div(2u128.into()).unwrap()).unwrap()) };
 
@@ -141,4 +145,33 @@ fn get_balance_resolver(deps: Deps, _env: Env, address: Addr) -> StdResult<Binar
 
     let resp = GetBalanceResponse { balance: checked_balance };
     to_binary(&resp)
+}
+
+
+// For a transfer with tip, a flat 10 "usei" is stored for the contract owner under the same BALANCES model.
+pub fn execute_transfer_with_tip(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    address1: Addr,
+    address2: Addr,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    // We need to adjust the amount required by the flat rate of 10 usei.  Alternatively, we could reduce the amount of usei that gets sent to the other addresses.
+    let adjusted_amount = amount.checked_add(Uint128::from(10u128)).unwrap();
+    // Check that requestor has sufficient usei tokens.
+    assert_sent_sufficient_coin(&info.funds, Some(Coin{ denom: "usei".to_string(), amount: adjusted_amount}))?;
+
+    // lambda function taken from cw-storage-plus tests:  https://github.com/CosmWasm/cw-storage-plus/blob/main/src/map.rs#LL1181C1-L1182C1
+    let add_half_amount = |a: Option<Uint128>| -> StdResult<_> { Ok(a.unwrap_or_default().checked_add(amount.checked_div(2u128.into()).unwrap()).unwrap()) };
+
+    BALANCES.update(deps.storage, address1, add_half_amount)?;
+    BALANCES.update(deps.storage, address2, add_half_amount)?;
+
+    // Credit contract owner with the 10 usei tip.
+    let add_10_usei_tip = |a: Option<Uint128>| -> StdResult<_> { Ok(a.unwrap_or_default().checked_add(Uint128::from(10u128)).unwrap()) };
+    let config = CONFIG.load(deps.storage)?;
+    BALANCES.update(deps.storage, config.owner, add_10_usei_tip)?;
+
+    Ok(Response::default())
 }

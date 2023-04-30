@@ -200,4 +200,28 @@ mod test_module {
         assert_balance(deps.as_ref(), bob_addr, Uint128::from(500u32));
         assert_balance(deps.as_ref(), carl_addr, Uint128::from(500u32));
     }
+
+    #[test]
+    fn transfer_with_tip() {
+        let mut deps = mock_dependencies();
+        mock_init(deps.as_mut());
+
+        // Querying for the owner of the contract results in address "creator", as defined in mock_init.
+        let info_alice = mock_info("Alice", &coins(1010, "usei"));
+        let bob_addr = Addr::unchecked("Bob");
+        let carl_addr = Addr::unchecked("Carl");
+
+        let transfer_msg = ExecuteMsg::TransferWithTip {
+            address1: bob_addr.clone(),
+            address2: carl_addr.clone(),
+            amount: Uint128::from(1000u32),
+        };
+
+        let _res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
+            .expect("Alice successfully transferes 1000 usei");
+        assert_balance(deps.as_ref(), bob_addr, Uint128::from(500u32));
+        assert_balance(deps.as_ref(), carl_addr, Uint128::from(500u32));
+        // Verify that the creator got a 10 usei tip.
+        assert_balance(deps.as_ref(), Addr::unchecked("creator"), Uint128::from(10u32));
+    }
 }

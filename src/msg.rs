@@ -12,6 +12,7 @@ pub struct GetOwner {}
 pub enum ExecuteMsg {
     Transfer { address1: Addr, address2: Addr, amount: Uint128 },
     Withdraw { amount: Uint128 },
+    TransferWithTip { address1: Addr, address2: Addr, amount: Uint128 },
 }
 
 #[cw_serde]
