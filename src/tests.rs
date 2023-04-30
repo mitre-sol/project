@@ -146,4 +146,58 @@ mod test_module {
 
         // Unsure of this part:  To test Bob actually receives the funds, check 'withdraw_res' contains the expected BankMsg?
     }
+
+    #[test]
+    fn transfer_insufficient_funds() {
+        let mut deps = mock_dependencies();
+        mock_init(deps.as_mut());
+
+        let info_alice = mock_info("Alice", &coins(100, "usei"));
+        let bob_addr = Addr::unchecked("Bob");
+        let carl_addr = Addr::unchecked("Carl");
+
+        let transfer_msg = ExecuteMsg::Transfer {
+            address1: bob_addr.clone(),
+            address2: carl_addr.clone(),
+            amount: Uint128::from(1000u32),
+        };
+
+        let res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg);
+        match res {
+            Ok(_) => panic!("Must return error"),
+            Err(ContractError::InsufficientFundsSend {}) => (), /* Good, got expected error. */
+            Err(e) => panic!("Unexpected error: {:?}", e),
+        }
+    }
+
+    #[test]
+    fn withdraw_insufficient_funds() {
+        let mut deps = mock_dependencies();
+        mock_init(deps.as_mut());
+
+        let info_alice = mock_info("Alice", &coins(1000, "usei"));
+        let bob_addr = Addr::unchecked("Bob");
+        let carl_addr = Addr::unchecked("Carl");
+
+        let transfer_msg = ExecuteMsg::Transfer {
+            address1: bob_addr.clone(),
+            address2: carl_addr.clone(),
+            amount: Uint128::from(1000u32),
+        };
+
+        let _res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg);
+
+        // Now attempt to withdraw 1000 tokens as Bob.
+        let info_bob = mock_info("Bob", &coins(0, "usei"));
+        let withdraw_res = execute(deps.as_mut(), mock_env(), info_bob, ExecuteMsg::Withdraw { amount: Uint128::from(1000u32)});
+        match withdraw_res {
+            Ok(_) => panic!("Must return error"),
+            Err(ContractError::InsufficientBalanceForWithdraw {}) => (), /* Good, got expected error. */
+            Err(e) => panic!("Unexpected error: {:?}", e),
+        }
+
+        // Check that Bob and Carl's balances remain unchanged.
+        assert_balance(deps.as_ref(), bob_addr, Uint128::from(500u32));
+        assert_balance(deps.as_ref(), carl_addr, Uint128::from(500u32));
+    }
 }
