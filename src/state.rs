@@ -4,7 +4,7 @@ use cw_storage_plus::{Item, Map};
 
 #[cw_serde]
 pub struct Config {
-    pub creator: Addr,
+    pub owner: Addr,
 }
 
 #[cw_serde]
