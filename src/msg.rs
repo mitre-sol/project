@@ -6,6 +6,9 @@ use cosmwasm_std::{Addr, Coin};
 pub struct InstantiateMsg {}
 
 #[cw_serde]
+pub struct GetOwner {}
+
+#[cw_serde]
 pub enum ExecuteMsg {
     Register { name: String },
     Transfer { name: String, to: String },
@@ -16,17 +19,24 @@ pub enum ExecuteMsg {
 pub enum QueryMsg {
     #[returns(ConfigResponse)]
     Config {},
+    #[returns(GetOwnerResponse)]
+    GetOwner {},
 }
 
 #[cw_serde]
 pub struct ConfigResponse {
-    creator: Addr,
+    owner: Addr,
 }
 
 impl From<Config> for ConfigResponse {
     fn from(config: Config) -> ConfigResponse {
         ConfigResponse {
-            creator: config.creator,
+            owner: config.owner,
         }
     }
+}
+
+#[cw_serde]
+pub struct GetOwnerResponse {
+    pub address: String,
 }

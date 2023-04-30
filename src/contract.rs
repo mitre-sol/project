@@ -3,7 +3,7 @@ use cosmwasm_std::{
 };
 
 use crate::error::ContractError;
-use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ConfigResponse, ExecuteMsg, InstantiateMsg, QueryMsg, GetOwnerResponse};
 use crate::state::{Config, NameRecord, CONFIG, NAME_RESOLVER};
 
 const MIN_NAME_LENGTH: u64 = 3;
@@ -17,10 +17,10 @@ pub fn instantiate(
     _msg: InstantiateMsg,
 ) -> Result<Response, StdError> {
     let config = Config {
-        creator: info.sender.clone(),
+        owner: info.sender.clone(),
     };
     CONFIG.save(deps.storage, &config)?;
-    print!("INFO {}", info.sender.into_string());
+    println!("INFO {}", info.sender.into_string());
 
     Ok(Response::default())
 }
@@ -94,7 +94,15 @@ pub fn instantiate(
 pub fn query(deps: Deps, env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
         QueryMsg::Config {} => to_binary::<ConfigResponse>(&CONFIG.load(deps.storage)?.into()),
+        QueryMsg::GetOwner {} => get_owner_resolver(deps, env),
     }
+}
+
+fn get_owner_resolver(deps: Deps, _env: Env) -> StdResult<Binary> {
+    let config = CONFIG.load(deps.storage)?;
+    let address = config.owner.to_string();
+    let resp = GetOwnerResponse { address };
+    to_binary(&resp)
 }
 
 
