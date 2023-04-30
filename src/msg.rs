@@ -11,6 +11,7 @@ pub struct GetOwner {}
 #[cw_serde]
 pub enum ExecuteMsg {
     Transfer { address1: Addr, address2: Addr, amount: Uint128 },
+    Withdraw { amount: Uint128 },
 }
 
 #[cw_serde]

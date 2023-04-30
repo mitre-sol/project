@@ -1,5 +1,5 @@
 use cosmwasm_std::{
-    Addr, entry_point, to_binary, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128
+    Addr, entry_point, to_binary, BankMsg, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdError, StdResult, Uint128
 };
 
 use crate::error::ContractError;
@@ -34,6 +34,7 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::Transfer { address1, address2, amount } => execute_transfer(deps, env, info, address1, address2, amount),
+        ExecuteMsg::Withdraw { amount } => execute_withdraw(deps, env, info, amount),
     }
 }
 
@@ -60,6 +61,42 @@ pub fn assert_sent_sufficient_coin(
     }
     Ok(())
 }
+
+// This util to dispense from Bank is directly copied from https://github.com/deus-labs/cw-contracts/blob/main/contracts/escrow/src/contract.rs#LL99C1-L108C2
+fn send_tokens(to_address: Addr, amount: Vec<Coin>, action: &str) -> Response {
+    Response::new()
+        .add_message(BankMsg::Send {
+            to_address: to_address.clone().into(),
+            amount,
+        })
+        .add_attribute("action", action)
+        .add_attribute("to", to_address)
+}
+
+pub fn execute_withdraw(
+    deps: DepsMut,
+    _env: Env,
+    info: MessageInfo,
+    amount: Uint128,
+) -> Result<Response, ContractError> {
+    let balance = BALANCES.may_load(deps.storage, info.sender.clone())?;
+
+    if balance.is_none() {
+        return Err(ContractError::InsufficientBalanceForWithdraw {});
+    } else {
+        let checked_balance = balance.unwrap();
+        if checked_balance < amount {
+            return Err(ContractError::InsufficientBalanceForWithdraw {});
+        }
+    }
+
+    let withdraw_amount = |a: Option<Uint128>| -> StdResult<_> { Ok(a.unwrap_or_default().checked_sub(amount).unwrap()) };
+
+    BALANCES.update(deps.storage, info.sender.clone(), withdraw_amount);
+
+    return Ok(send_tokens(info.sender.clone(), vec![Coin {denom: "usei".to_string(), amount: amount}], "withdraw"));
+}
+
 
 pub fn execute_transfer(
     deps: DepsMut,

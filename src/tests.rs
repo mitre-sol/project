@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod test_module {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{Addr, coin, coins, from_binary, Coin, Deps, DepsMut, Uint128};
+    use cosmwasm_std::{Addr, BankMsg, coin, coins, from_binary, Coin, Deps, DepsMut, Uint128};
 
     use crate::contract::{execute, instantiate, query};
     use crate::error::ContractError;
@@ -86,6 +86,28 @@ mod test_module {
     }
 
     #[test]
+    fn transfer_odd_amount() {
+        let mut deps = mock_dependencies();
+        mock_init(deps.as_mut());
+
+        // Querying for the owner of the contract results in address "creator", as defined in mock_init.
+        let info_alice = mock_info("Alice", &coins(5, "usei"));
+        let bob_addr = Addr::unchecked("Bob");
+        let carl_addr = Addr::unchecked("Carl");
+
+        let transfer_msg = ExecuteMsg::Transfer {
+            address1: bob_addr.clone(),
+            address2: carl_addr.clone(),
+            amount: Uint128::from(5u32),
+        };
+
+        let res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
+            .expect("Alice successfully transferes 1000 usei");
+        assert_balance(deps.as_ref(), bob_addr, Uint128::from(2u32));
+        assert_balance(deps.as_ref(), carl_addr, Uint128::from(2u32));
+    }
+
+    #[test]
     fn get_balance_empty() {
         let mut deps = mock_dependencies();
         mock_init(deps.as_mut());
@@ -93,5 +115,36 @@ mod test_module {
         // Bob's balance should be 0 usei as there have been no transfers to his addr.
         let bob_addr = Addr::unchecked("Bob");
         assert_balance(deps.as_ref(), bob_addr, Uint128::from(0u32));
+    }
+
+    #[test]
+    fn withdraw_basic() {
+        let mut deps = mock_dependencies();
+        mock_init(deps.as_mut());
+
+        let info_alice = mock_info("Alice", &coins(1000, "usei"));
+        let bob_addr = Addr::unchecked("Bob");
+        let carl_addr = Addr::unchecked("Carl");
+
+        let transfer_msg = ExecuteMsg::Transfer {
+            address1: bob_addr.clone(),
+            address2: carl_addr.clone(),
+            amount: Uint128::from(1000u32),
+        };
+
+        let transfer_res = execute(deps.as_mut(), mock_env(), info_alice, transfer_msg)
+            .expect("Alice successfully transferes 1000 usei");
+
+        // After Alice's transfer, Bob's balance should be 500.
+        assert_balance(deps.as_ref(), bob_addr.clone(), Uint128::from(500u32));
+
+        // Now attempt to withdraw 400 tokens as Bob.
+        let info_bob = mock_info("Bob", &coins(0, "usei"));
+        let withdraw_res = execute(deps.as_mut(), mock_env(), info_bob, ExecuteMsg::Withdraw { amount: Uint128::from(400u32)});
+
+        // After withdraw, Bob's balance should be 100.
+        assert_balance(deps.as_ref(), bob_addr.clone(), Uint128::from(100u32));
+
+        // Unsure of this part:  To test Bob actually receives the funds, check 'withdraw_res' contains the expected BankMsg?
     }
 }
